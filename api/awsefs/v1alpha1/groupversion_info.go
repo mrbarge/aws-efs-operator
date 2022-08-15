@@ -19,6 +19,9 @@ limitations under the License.
 //+groupName=aws-efs.managed.openshift.io
 package v1alpha1
 
+/* This appears replacing v1 register.go and doc.go files
+SchemeGroupVersion -> GroupVersion
+*/
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
