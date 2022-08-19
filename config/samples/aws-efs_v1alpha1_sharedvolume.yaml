@@ -1,0 +1,6 @@
+apiVersion: aws-efs.managed.openshift.io/v1alpha1
+kind: SharedVolume
+metadata:
+  name: sharedvolume-sample
+spec:
+  # TODO(user): Add fields here
