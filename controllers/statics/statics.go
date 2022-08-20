@@ -14,7 +14,7 @@ import (
 
 	"github.com/go-logr/logr"
 	securityv1 "github.com/openshift/api/security/v1"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	"github.com/operator-framework/operator-sdk/internal/util/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"

@@ -30,17 +30,17 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"openshift/aws-efs-operator/pkg/apis"
-	"openshift/aws-efs-operator/pkg/controller"
-	"openshift/aws-efs-operator/pkg/controller/statics"
+	"openshift/aws-efs-operator/api"
+	"openshift/aws-efs-operator/controllers"
+	"openshift/aws-efs-operator/controllers/statics"
 	"openshift/aws-efs-operator/version"
 	
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	"github.com/operator-framework/operator-sdk/internal/util/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
-	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	sdkVersion "github.com/operator-framework/operator-sdk/internal/version"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -59,8 +59,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	awsefsv1alpha1 "github.com/openshift/aws-efs-operator/api/v1alpha1"
-	"github.com/openshift/aws-efs-operator/controllers"
+	awsefsv1alpha1 "openshift/aws-efs-operator/v1alpha1"
+	"openshift/aws-efs-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 

@@ -14,7 +14,7 @@ require (
 	github.com/golang/mock v1.4.3
 	github.com/google/go-cmp v0.5.2
 	github.com/openshift/api v0.0.0-20210928121311-b64fe3d0dc32
-	github.com/operator-framework/operator-sdk v0.18.2
+	github.com/operator-framework/operator-sdk v1.21.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	k8s.io/api v0.19.14
