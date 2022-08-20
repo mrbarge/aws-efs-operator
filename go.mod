@@ -1,13 +1,24 @@
-module github.com/openshift/aws-efs-operator
+module openshift/aws-efs-operator
 
 go 1.17
 
 require (
+	github.com/go-logr/logr v0.4.0
+	github.com/go-logr/zapr v0.4.0 // indirect
+	github.com/golang/mock v1.4.3
+	github.com/google/go-cmp v0.5.2
+	github.com/openshift/api v0.0.0-20210928121311-b64fe3d0dc32
+	github.com/operator-framework/operator-sdk v0.18.2
+	github.com/spf13/pflag v1.0.5
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	k8s.io/api v0.19.14
+	k8s.io/apiextensions-apiserver v0.19.7
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	k8s.io/apimachinery v0.23.5
 	k8s.io/client-go v0.23.5
 	sigs.k8s.io/controller-runtime v0.11.2
+	sigs.k8s.io/yaml v1.2.0
 )
 
 require (
