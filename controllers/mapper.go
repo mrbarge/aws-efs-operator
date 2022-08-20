@@ -3,7 +3,7 @@ package controllers
 // Helpers for mapping secondary resources back to the SharedVolume that owns them.
 
 import (
-	awsefsv1alpha1 "openshift/aws-efs-operator/api/awsefs/v1alpha1"
+	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

@@ -20,7 +20,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	awsefsv1alpha1 "openshift/aws-efs-operator/api/awsefs/v1alpha1"
+	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
 	"openshift/aws-efs-operator/fixtures"
 	"openshift/aws-efs-operator/test"
 	"openshift/aws-efs-operator/util"

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	awsefsv1alpha1 "openshift/aws-efs-operator/api/awsefs/v1alpha1"
+	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
 	"openshift/aws-efs-operator/util"
 
 	"github.com/go-logr/logr"

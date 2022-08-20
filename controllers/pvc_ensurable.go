@@ -3,7 +3,7 @@ package controllers
 // Ensurable impl for PersistentVolumeClaim
 
 import (
-	awsefsv1alpha1 "openshift/aws-efs-operator/api/awsefs/v1alpha1"
+	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
 	"openshift/aws-efs-operator/controllers/statics"
 	util "openshift/aws-efs-operator/util"
 
