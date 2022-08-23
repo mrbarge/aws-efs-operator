@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
-	"openshift/aws-efs-operator/fixtures"
-	"openshift/aws-efs-operator/test"
-	"openshift/aws-efs-operator/util"
+	"openshift/aws-efs-operator/pkg/fixtures"
+	"openshift/aws-efs-operator/pkg/test"
+	"openshift/aws-efs-operator/pkg/util"
 	"runtime/debug"
 
 	"context"

@@ -3,8 +3,8 @@ package statics
 import (
 	"testing"
 
-	"openshift/aws-efs-operator/test"
-	"openshift/aws-efs-operator/util"
+	"openshift/aws-efs-operator/pkg/test"
+	"openshift/aws-efs-operator/pkg/util"
 
 	"golang.org/x/net/context"
 
