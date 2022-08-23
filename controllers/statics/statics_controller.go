@@ -8,7 +8,7 @@ This controller knows how to bootstrap these objects and watch them for changes
 
 import (
 	"context"
-	"openshift/aws-efs-operator/util"
+	"openshift/aws-efs-operator/pkg/util"
 	"time"
 
 	"github.com/go-logr/logr"

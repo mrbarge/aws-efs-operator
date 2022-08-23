@@ -5,7 +5,7 @@ package controllers
 import (
 	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
 	"openshift/aws-efs-operator/controllers/statics"
-	util "openshift/aws-efs-operator/util"
+	util "openshift/aws-efs-operator/pkg/util"
 
 	"fmt"
 

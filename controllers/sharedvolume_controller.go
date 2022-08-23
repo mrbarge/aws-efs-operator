@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
-	"openshift/aws-efs-operator/util"
+	"openshift/aws-efs-operator/pkg/util"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
