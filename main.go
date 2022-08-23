@@ -27,40 +27,40 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"openshift/aws-efs-operator/api"
-	"openshift/aws-efs-operator/controllers"
+	awsefsControllers "openshift/aws-efs-operator/controllers"
 	"openshift/aws-efs-operator/controllers/statics"
 	"openshift/aws-efs-operator/version"
-	
-	"github.com/operator-framework/operator-sdk/internal/util/k8sutil"
-	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	"github.com/operator-framework/operator-sdk/pkg/metrics"
-	sdkVersion "github.com/operator-framework/operator-sdk/internal/version"
+	awsefsAPI "openshift/aws-efs-operator/api"
+	awsefsConfig "openshift/aws-efs-operator/config"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	monclientv1 "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
+	"openshift/aws-efs-operator/pkg/k8sutil"
+	"github.com/operator-framework/operator-lib/leader"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	
-	
-	"k8s.io/apimachinery/pkg/runtime"
+	opmetrics "github.com/openshift/operator-custom-metrics/pkg/metrics"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	awsefsv1alpha1 "openshift/aws-efs-operator/v1alpha1"
-	"openshift/aws-efs-operator/controllers"
+	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
+
 	//+kubebuilder:scaffold:imports
 )
 
@@ -68,6 +68,8 @@ var (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
+	customMetricsPath       = "/metrics"
+	scheme                    = apiruntime.NewScheme()
 )
 var log = logf.Log.WithName("cmd")
 
@@ -75,7 +77,7 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+	log.Info(fmt.Sprintf("Version of operator-sdk: %v", version.SDKVersion))
 }
 
 func init() {
@@ -86,6 +88,13 @@ func init() {
 }
 
 func main() {
+	var metricsAddr string
+	var probeAddr string
+	var enableLeaderElection bool
+	enableLeaderElection = true
+
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":"+fmt.Sprintf("%d", metricsPort), "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().
@@ -120,65 +129,40 @@ func main() {
 			namespace))
 		namespace = ""
 	}
+	// This set the sync period to 5m
+	syncPeriod := awsefsConfig.SyncPeriodDefault
+	
 
-	// Get a config to talk to the apiserver
-	cfg, err := config.GetConfig()
+	/*new Manager*/
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Namespace:              namespace,
+		Scheme:                 scheme,
+		MetricsBindAddress:     metricsAddr,
+		Port:                   9443,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "312e6264.managed.openshift.io",
+		SyncPeriod:             &syncPeriod,
+		NewClient: func(_ cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
+			return client.New(config, options)
+		},
+	})
+
+	log.Info("Registering Components.")
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	ctx := context.TODO()
-	// Become the leader before proceeding , This is moved to lease in the options LeaderElection set to true
-	// err = leader.Become(ctx, "aws-efs-operator-lock")
-	// if err != nil {
-		// log.Error(err, "")
-		// os.Exit(1)
-	// }
-
-	// Set default manager options
-	options := manager.Options{
-		Namespace:          namespace,
-		LeaderElection: true,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-	}
-
-	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
-	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
-	// Also note that you may face performance issues when using this with a high number of namespaces.
-	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
-	// TODO(efried): This is unreachable for now, because we always force `namespace` to "". But
-	// for efficiency, we may in the future wish to allow the operator to be configured to watch a
-	// specific list of namespaces (meaning the user only needs pods in those namespaces using
-	// shared volumes). In that case, we would have to add the discovered namespace to the list,
-	// because that's where the driver runs, and we always have to watch that.
-	if strings.Contains(namespace, ",") {
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
-	}
-	// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-	// when the Manager ends. This requires the binary to immediately end when the
-	// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-	// speeds up voluntary leader transitions as the new leader don't have to wait
-	// LeaseDuration time first.
-	//
-	// In the default scaffold provided, the program ends immediately after
-	// the manager stops, so would be fine to enable this option. However,
-	// if you are doing or is intended to do any operation such as perform cleanups
-	// after the manager stops then its usage might be unsafe.
-	// LeaderElectionReleaseOnCancel: true,
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(),options)
-
-	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := awsefsAPI.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
 	// Add OpenShift security apis to scheme
-	if err := securityv1.Install(mgr.GetScheme()); err != nil {
+	if err := awsefsAPI.Install(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
@@ -190,13 +174,49 @@ func main() {
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
+	if err := awsefsControllers.AddToManager(mgr); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+	// Get a config to talk to the apiserver
+	ctx := context.TODO()
+	cfg, err := config.GetConfig()
+	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
+	// Add the Custom Metrics Service
+	metricsClient, err := client.New(cfg, client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		log.Error(err, "unable to create k8s client for upgrade metrics")
+		os.Exit(1)
+	}
+	
+	// Add the Metrics Service and ServiceMonitor
+	if err := addMetrics(ctx, metricsClient, cfg); err != nil {
+		log.Error(err, "Metrics service is not added.")
+		os.Exit(1)
+	}
+
+	ns, err := awsefsControllers.util.GetOperatorNamespace()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	customMetrics := opmetrics.NewBuilder(ns, "managed-upgrade-operator-custom-metrics").
+		WithPath(customMetricsPath).
+		WithServiceMonitor().
+		WithServiceLabel(map[string]string{"name": awsefsConfig.OperatorName}).
+		GetConfig()
+
+	if err = opmetrics.ConfigureMetrics(context.TODO(), *customMetrics); err != nil {
+		log.Error(err, "Failed to configure custom metrics")
+		os.Exit(1)
+	}
+	
 	// Create k8s client to perform startup tasks.
-	startupClient, err := crclient.New(cfg, crclient.Options{Scheme: mgr.GetScheme()})
+	startupClient, err := client.New(cfg, client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
 		log.Error(err, "Unable to create operator startup client")
 		os.Exit(1)
@@ -208,8 +228,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Add the Metrics Service
-	addMetrics(ctx, cfg)
 
 	log.Info("Starting the Cmd.")
 
@@ -222,70 +240,62 @@ func main() {
 
 // addMetrics will create the Services and Service Monitors to allow the operator export the metrics by using
 // the Prometheus operator
-func addMetrics(ctx context.Context, cfg *rest.Config) {
+
+func addMetrics(ctx context.Context, cl client.Client, cfg *rest.Config) error {
 	// Get the namespace the operator is currently deployed in.
 	operatorNs, err := k8sutil.GetOperatorNamespace()
 	if err != nil {
-		if errors.Is(err, k8sutil.ErrRunLocal) {
-			log.Info("Skipping CR metrics server creation; not running in a cluster.")
-			return
+		if errors.Is(err, k8sutil.ErrRunLocal) || errors.Is(err, k8sutil.ErrNoNamespace) {
+			log.Info("Skipping metrics service creation; not running in a cluster.")
+			return nil
 		}
 	}
 
-	if err := serveCRMetrics(cfg, operatorNs); err != nil {
-		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
-	}
+	// Get the operator name
+	operatorName, _ := k8sutil.GetOperatorName()
 
-	// Add to the below struct any other metrics ports you want to expose.
-	servicePorts := []v1.ServicePort{
-		{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
-		{Port: operatorMetricsPort, Name: metrics.CRPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort}},
-	}
-
-	// Create Service object to expose the metrics port(s).
-	service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
+	service, err := opmetrics.GenerateService(metricsPort, "http-metrics", operatorName+"-metrics", operatorNs, map[string]string{"name": operatorName})
 	if err != nil {
 		log.Info("Could not create metrics Service", "error", err.Error())
+		return err
 	}
 
-	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
-	// necessary to configure Prometheus to scrape metrics from this operator.
-	services := []*v1.Service{service}
-
-	// The ServiceMonitor is created in the same namespace where the operator is deployed
-	_, err = metrics.CreateServiceMonitors(cfg, operatorNs, services)
+	log.Info(fmt.Sprintf("Attempting to create service %s", service.Name))
+	err = cl.Create(ctx, service)
 	if err != nil {
-		log.Info("Could not create ServiceMonitor object", "error", err.Error())
-		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
-		// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
-		if err == metrics.ErrServiceMonitorNotPresent {
-			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
+		if !apierrors.IsAlreadyExists(err) {
+			log.Error(err, "Could not create metrics service")
+			return err
+		} else {
+			log.Info("Metrics service already exists, will not create")
 		}
 	}
-}
 
-// serveCRMetrics gets the Operator/CustomResource GVKs and generates metrics based on those types.
-// It serves those metrics on "http://metricsHost:operatorMetricsPort".
-func serveCRMetrics(cfg *rest.Config, operatorNs string) error {
-	// The function below returns a list of filtered operator/CR specific GVKs. For more control, override the GVK list below
-	// with your own custom logic. Note that if you are adding third party API schemas, probably you will need to
-	// customize this implementation to avoid permissions issues.
-	filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
-	if err != nil {
-		return err
-	}
+	services := []*corev1.Service{service}
+	mclient := monclientv1.NewForConfigOrDie(cfg)
+	copts := metav1.CreateOptions{}
 
-	// The metrics will be generated from the namespaces which are returned here.
-	// NOTE that passing nil or an empty list of namespaces in GenerateAndServeCRMetrics will result in an error.
-	ns, err := kubemetrics.GetNamespacesForMetrics(operatorNs)
-	if err != nil {
-		return err
-	}
+	for _, s := range services {
+		if s == nil {
+			continue
+		}
 
-	// Generate and serve custom resource specific metrics.
-	err = kubemetrics.GenerateAndServeCRMetrics(cfg, ns, filteredGVK, metricsHost, operatorMetricsPort)
-	if err != nil {
-		return err
+		sm := opmetrics.GenerateServiceMonitor(s)
+
+		// ErrSMMetricsExists is used to detect if the -metrics ServiceMonitor already exists
+		var ErrSMMetricsExists = fmt.Sprintf("servicemonitors.monitoring.coreos.com \"%s-metrics\" already exists", awsefsConfig.OperatorName)
+
+		log.Info(fmt.Sprintf("Attempting to create service monitor %s", sm.Name))
+		// TODO: Get SM and compare to see if an UPDATE is required
+		_, err := mclient.ServiceMonitors(operatorNs).Create(ctx, sm, copts)
+		if err != nil {
+			if err.Error() != ErrSMMetricsExists {
+				return err
+			}
+			log.Info("ServiceMonitor already exists")
+		}
+		log.Info(fmt.Sprintf("Successfully configured service monitor %s", sm.Name))
 	}
 	return nil
 }
+

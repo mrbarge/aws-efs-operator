@@ -8,13 +8,13 @@ package statics
 
 import (
 	"fmt"
-	"openshift/aws-efs-operator/util"
+	"openshift/aws-efs-operator/pkg/util"
 	"path/filepath"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	securityv1 "github.com/openshift/api/security/v1"
-	"github.com/operator-framework/operator-sdk/internal/util/k8sutil"
+	"openshift/aws-efs-operator/pkg/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
