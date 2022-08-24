@@ -8,7 +8,6 @@ import (
 	logr "github.com/go-logr/logr"
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 	types "k8s.io/apimachinery/pkg/types"
 	reflect "reflect"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,10 +37,10 @@ func (m *MockEnsurable) EXPECT() *MockEnsurableMockRecorder {
 }
 
 // GetType mocks base method
-func (m *MockEnsurable) GetType() runtime.Object {
+func (m *MockEnsurable) GetType() client.Object {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetType")
-	ret0, _ := ret[0].(runtime.Object)
+	ret0, _ := ret[0].(client.Object)
 	return ret0
 }
 

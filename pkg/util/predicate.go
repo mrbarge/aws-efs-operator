@@ -31,14 +31,15 @@ var log = logf.Log.WithName("controller_utils")
 // Use this when we can't match on owner, either because there is no runtime.Object owner
 // (cluster-level resources that are "owned" by the controller) or because the owning and
 // owned objects are in different namespaces.
+/*Remove e.Meta*/
 var ICarePredicate = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool { return passes(e.Object, e.Meta) },
-	DeleteFunc: func(e event.DeleteEvent) bool { return passes(e.Object, e.Meta) },
+	CreateFunc: func(e event.CreateEvent) bool { return passes(e.Object, nil) },
+	DeleteFunc: func(e event.DeleteEvent) bool { return passes(e.Object, nil) },
 	// UpdateFunc passes if *either* the new or old object is one we care about.
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return passes(e.ObjectOld, e.MetaOld) || passes(e.ObjectNew, e.MetaNew)
+		return passes(e.ObjectOld, nil) || passes(e.ObjectNew,nil)
 	},
-	GenericFunc: func(e event.GenericEvent) bool { return passes(e.Object, e.Meta) },
+	GenericFunc: func(e event.GenericEvent) bool { return passes(e.Object, nil) },
 }
 
 // DoICare answers whether our object will trigger our watcher.
