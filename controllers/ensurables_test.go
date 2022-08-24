@@ -5,8 +5,8 @@ package controllers
 import (
 	"fmt"
 	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
-	"openshift/aws-efs-operator/test"
-	util "openshift/aws-efs-operator/sutil"
+	"openshift/aws-efs-operator/pkg/test"
+	util "openshift/aws-efs-operator/pkg/util"
 
 	"testing"
 
