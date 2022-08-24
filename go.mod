@@ -8,13 +8,13 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/openshift/api v0.0.0-20220414050251-a83e6f8f1d50
 	github.com/openshift/operator-custom-metrics v0.5.0
-	github.com/prometheus-operator/prometheus-operator/pkg/client v0.58.0
+	github.com/prometheus-operator/prometheus-operator/pkg/client v0.55.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.0.0-20220708220712-1185a9018129
-	k8s.io/api v0.24.4
-	k8s.io/apiextensions-apiserver v0.24.4
+	k8s.io/api v0.24.3
+	k8s.io/apiextensions-apiserver v0.24.3
 	k8s.io/apimachinery v0.24.3
-	k8s.io/client-go v0.24.4
+	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.12.3
 	sigs.k8s.io/yaml v1.3.0
 )
