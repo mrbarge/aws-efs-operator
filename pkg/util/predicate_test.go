@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type testObjKind int
@@ -20,7 +21,7 @@ const (
 
 // mkTestObj returns a new runtime.Object that's nil, or that our predicate methods should either
 // care about or not, per the value of `kind`.
-func mkTestObj(kind testObjKind) runtime.Object {
+func mkTestObj(kind testObjKind) crclient.Object {
 	if kind == useNil {
 		return nil
 	}
