@@ -60,20 +60,20 @@ func TestCreateDeleteGeneric(t *testing.T) {
 	}
 	mktest := func(name string, objKind, metaKind testObjKind, want bool) test {
 		obj := mkTestObj(objKind)
-		meta := mkTestMeta(metaKind)
+		// meta := mkTestMeta(metaKind)
 		return test{
 			name,
 			event.CreateEvent{
 				Object: obj,
-				Meta:   meta,
+				// Meta:   meta,
 			},
 			event.DeleteEvent{
 				Object: obj,
-				Meta:   meta,
+				// Meta:   meta,
 			},
 			event.GenericEvent{
 				Object: obj,
-				Meta:   meta,
+				// Meta:   meta,
 			},
 			want,
 		}
@@ -121,8 +121,9 @@ func TestUpdate(t *testing.T) {
 			event.UpdateEvent{
 				ObjectOld: mkTestObj(oldObj),
 				ObjectNew: mkTestObj(newObj),
-				MetaOld:   mkTestMeta(oldMeta),
-				MetaNew:   mkTestMeta(newMeta),
+				/*removed in newer version*/
+				// MetaOld:   mkTestMeta(oldMeta),
+				// MetaNew:   mkTestMeta(newMeta),
 			},
 			want,
 		}
