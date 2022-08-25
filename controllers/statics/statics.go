@@ -18,7 +18,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -134,13 +133,13 @@ func init() {
 	}
 }
 
-func loadDefTemplate(receiver runtime.Object, defFile string) {
+func loadDefTemplate(receiver crclient.Object, defFile string) {
 	if err := yaml.Unmarshal(MustAsset(filepath.Join("defs", defFile)), receiver); err != nil {
 		panic(fmt.Sprintf("Couldn't load %s: %s", defFile, err.Error()))
 	}
 }
 
-func getNSName(definition runtime.Object) types.NamespacedName {
+func getNSName(definition crclient.Object) types.NamespacedName {
 	nsname, err := crclient.ObjectKeyFromObject(definition)
 	if err != nil {
 		panic(fmt.Sprintf("Couldn't extract NamespacedName from definition: %s", err.Error()))
@@ -208,14 +207,14 @@ func EnsureStatics(log logr.Logger, client crclient.Client) error {
 	return nil
 }
 
-func csiDriverEqual(local, server runtime.Object) bool {
+func csiDriverEqual(local, server crclient.Object) bool {
 	return reflect.DeepEqual(
 		local.(*storagev1.CSIDriver).Spec,
 		server.(*storagev1.CSIDriver).Spec,
 	)
 }
 
-func daemonSetEqual(local, server runtime.Object) bool {
+func daemonSetEqual(local, server crclient.Object) bool {
 	// TODO: k8s updates fields in the Spec :(
 	return reflect.DeepEqual(
 		local.(*appsv1.DaemonSet).Spec,

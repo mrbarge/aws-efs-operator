@@ -11,7 +11,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -22,8 +22,8 @@ type mocks struct {
 	ensurable           *EnsurableImpl
 	log                 *fx.MockLogger
 	client              *fx.MockClient
-	getTypeAndServerObj runtime.Object
-	getterAndCachedObj  runtime.Object
+	getTypeAndServerObj crclient.Object
+	getterAndCachedObj  crclient.Object
 }
 
 func mkMocks(ctrl *gomock.Controller) mocks {
@@ -177,7 +177,7 @@ func TestEnsureExistsUpdateSuccess(t *testing.T) {
 	MakeMeCare(m.getTypeAndServerObj)
 	// Poor man's call checker:
 	equalFuncCalled := false
-	m.ensurable.EqualFunc = func(local, server runtime.Object) bool {
+	m.ensurable.EqualFunc = func(local, server crclient.Object) bool {
 		equalFuncCalled = true
 		// Trigger "needs an update"
 		return false
@@ -320,8 +320,8 @@ func TestVersionsEqual(t *testing.T) {
 	}
 
 	type args struct {
-		local  runtime.Object
-		server runtime.Object
+		local  crclient.Object
+		server crclient.Object
 	}
 	tests := []struct {
 		name string
