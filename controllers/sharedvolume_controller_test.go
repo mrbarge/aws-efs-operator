@@ -30,10 +30,10 @@ var ctx = context.TODO()
 
 // TODO: Test add()/watches somehow?
 
-// fakeReconciler returns a ReconcileSharedVolume with a fake (as opposed to mocked)
+// fakeReconciler returns a SharedVolumeReconciler with a fake (as opposed to mocked)
 // controller-runtime client. Use this when a test wants realistic, but good-path-only, REST client
 // behavior. Use `setupMock` instead if you need to customize error conditions.
-func fakeReconciler() *ReconcileSharedVolume {
+func fakeReconciler() *SharedVolumeReconciler {
 	sch := scheme.Scheme
 	sch.AddKnownTypes(
 		awsefsv1alpha1.SchemeGroupVersion,
@@ -41,18 +41,18 @@ func fakeReconciler() *ReconcileSharedVolume {
 		&awsefsv1alpha1.SharedVolumeList{},
 	)
 
-	return &ReconcileSharedVolume{
+	return &SharedVolumeReconciler{
 		client: fake.NewFakeClientWithScheme(sch),
 		scheme: sch,
 	}
 }
 
-// mockReconciler returns a ReconcileSharedVolume with a mocked (as opposed to fake)
+// mockReconciler returns a SharedVolumeReconciler with a mocked (as opposed to fake)
 // controller-runtime client. The mock client itself is returned so it can be EXPECT()ed, etc.
 // Use this when a fake client won't do, e.g. when you need to simulate an unexpected error.
-func mockReconciler(ctrl *gomock.Controller) (*ReconcileSharedVolume, *fixtures.MockClient) {
+func mockReconciler(ctrl *gomock.Controller) (*SharedVolumeReconciler, *fixtures.MockClient) {
 	client := fixtures.NewMockClient(ctrl)
-	rsv := &ReconcileSharedVolume{
+	rsv := &SharedVolumeReconciler{
 		client: client,
 		// Scheme is unused, so leave it nil
 	}
