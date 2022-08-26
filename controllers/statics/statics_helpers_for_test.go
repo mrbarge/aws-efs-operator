@@ -35,13 +35,13 @@ func checkNumStatics(t *testing.T) {
 // checkStatics queries the client for all the known static resources, verifying that they exist
 // and have the expected content. It returns a map, keyed by the short name of the resource type
 // (e.g. "SecurityContextConstraints") of the runtime.Object returned by the client for each resource.
-func checkStatics(t *testing.T, client crclient.Client) map[string]runtime.Object {
-	ret := make(map[string]runtime.Object)
+func checkStatics(t *testing.T, client crclient.Client) map[string]crclient.Object {
+	ret := make(map[string]crclient.Object)
 	ctx := context.TODO()
 
 	for _, i := range []struct {
 		name   string
-		obj    runtime.Object
+		obj    crclient.Object
 		nsname types.NamespacedName
 	}{
 		{

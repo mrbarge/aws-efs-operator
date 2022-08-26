@@ -39,7 +39,7 @@ func mkMocks(ctrl *gomock.Controller) mocks {
 	}
 	return mocks{
 		ensurable:           &ensurable,
-		log:                 fx.NewMockLogger(ctrl),
+		log:                 fx.NewMockLogSink(ctrl),
 		client:              fx.NewMockClient(ctrl),
 		getTypeAndServerObj: o1,
 		getterAndCachedObj:  o2,
@@ -124,7 +124,7 @@ func TestEnsureExistsNoUpdate(t *testing.T) {
 		m.log.EXPECT().Info("No update needed."),
 	)
 
-	if err := m.ensurable.Ensure(m.log, m.client); err != nil {
+	if err := m.ensurable.Ensure(m.logger, m.client); err != nil {
 		t.Errorf("Ensure(): expected nil, got %v", err)
 	}
 	// The latestVersion got overwritten, but with the same value

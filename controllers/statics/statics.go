@@ -140,9 +140,11 @@ func loadDefTemplate(receiver crclient.Object, defFile string) {
 }
 
 func getNSName(definition crclient.Object) types.NamespacedName {
-	nsname, err := crclient.ObjectKeyFromObject(definition)
-	if err != nil {
-		panic(fmt.Sprintf("Couldn't extract NamespacedName from definition: %s", err.Error()))
+	/*remove err , new version returns ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}*/
+	nsname := crclient.ObjectKeyFromObject(definition)
+	
+	if len(nsname.Name) == 0 {
+		panic(fmt.Sprintf("Couldn't extract NamespacedName from definition: %s", "Namespace not extracted"))
 	}
 	return nsname
 }
