@@ -73,7 +73,7 @@ func TestStartup(t *testing.T) {
 			t.Fatalf("Expected no OwnerReferences but got %v", orefs)
 		}
 		// Until we reconcile
-		res, err := r.Reconcile(reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Didn't expect an error, but got %v", err)
 		}
@@ -126,7 +126,7 @@ func TestReconcile(t *testing.T) {
 			dsStatic = staticResource
 		}
 		logger.Info("Bootstrap: reconciling", "resource", nsname)
-		res, err := r.Reconcile(reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Didn't expect an error, but got %v", err)
 		}
@@ -146,7 +146,7 @@ func TestReconcile(t *testing.T) {
 	}
 
 	// Now reconcile it
-	res, err := r.Reconcile(reconcile.Request{NamespacedName: dsStatic.GetNamespacedName()})
+	res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: dsStatic.GetNamespacedName()})
 	if err != nil {
 		t.Fatalf("Didn't expect an error, but got %v", err)
 	}
@@ -184,7 +184,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 		}
 		for _, staticResource := range staticResources {
 			nsname := staticResource.GetNamespacedName()
-			if _, err := r.Reconcile(reconcile.Request{NamespacedName: nsname}); err != nil {
+			if _, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname}); err != nil {
 				t.Fatal(err)
 			}
 
@@ -232,7 +232,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 	// Overkill, but prove this behaves the same for any static
 	for _, staticResource := range staticResources {
 		nsname := staticResource.GetNamespacedName()
-		res, err := r.Reconcile(reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Expected no error reconciling %v but got %v", nsname, err)
 		}
@@ -253,7 +253,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 	// Same again
 	for _, staticResource := range staticResources {
 		nsname := staticResource.GetNamespacedName()
-		res, err := r.Reconcile(reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Expected no error reconciling %v but got %v", nsname, err)
 		}
@@ -277,7 +277,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 		// Set our fake to error on this reconcile.
 		fcwce.GetBehavior[i] = fixtures.AlreadyExists
 		nsname := staticResource.GetNamespacedName()
-		res, err := r.Reconcile(reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Expected no error reconciling %v but got %v", nsname, err)
 		}
@@ -293,7 +293,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 func TestReconcileUnexpected(t *testing.T) {
 	_, r := setup()
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "foo", Name: "bar"}}
-	res, err := r.Reconcile(req)
+	res, err := r.Reconcile(context.TODO(),req)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -317,7 +317,7 @@ func TestReconcileEnsureFails(t *testing.T) {
 
 	rs := ReconcileStatics{client: fcwce, scheme: scheme.Scheme}
 
-	res, err := rs.Reconcile(reconcile.Request{NamespacedName: staticResource.GetNamespacedName()})
+	res, err := rs.Reconcile(context.TODO(),reconcile.Request{NamespacedName: staticResource.GetNamespacedName()})
 
 	if err == nil {
 		t.Fatal("Expected an error")
