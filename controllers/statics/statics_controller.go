@@ -150,7 +150,7 @@ func discoverCRD(client crclient.Client) (*apiextensions.CustomResourceDefinitio
 // deleteSCC deletes the SecurityContextConstraints static.
 // TODO(efried): This is a *workaround* for https://github.com/openshift/aws-efs-operator/issues/23
 // It should be deleted when that issue is resolved (upstream, or here in some better way).
-func deleteSCC(logger logr.Logger, client crclient.Client) {
+func deleteSCC(logger logr.LogSink, client crclient.Client) {
 	logger.Info("Manually deleting SecurityContextConstraints. See https://github.com/openshift/aws-efs-operator/issues/23")
 	scce := findStatic(types.NamespacedName{Name: sccName})
 	// Delete() does the logging. We're ignoring any errors.

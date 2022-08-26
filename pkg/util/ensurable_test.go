@@ -20,7 +20,7 @@ var nsname types.NamespacedName = types.NamespacedName{}
 
 type mocks struct {
 	ensurable           *EnsurableImpl
-	log                 *fx.MockLogger
+	log                 *fx.MockLogSink
 	client              *fx.MockClient
 	getTypeAndServerObj crclient.Object
 	getterAndCachedObj  crclient.Object
@@ -121,10 +121,10 @@ func TestEnsureExistsNoUpdate(t *testing.T) {
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
 		m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		m.log.EXPECT().Info("No update needed."),
+		m.log.EXPECT().Info("No update needed.","resource", nsname),
 	)
 
-	if err := m.ensurable.Ensure(m.logger, m.client); err != nil {
+	if err := m.ensurable.Ensure(m.log, m.client); err != nil {
 		t.Errorf("Ensure(): expected nil, got %v", err)
 	}
 	// The latestVersion got overwritten, but with the same value
@@ -148,10 +148,10 @@ func TestEnsureExistsUpdateError(t *testing.T) {
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
 		m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		m.log.EXPECT().Info("Update needed. Updating..."),
-		m.log.EXPECT().V(2).Return(m.log),
+		m.log.EXPECT().Info("Update needed. Updating...","resource", nsname),
+		// m.log.EXPECT().V(2).Return(m.log),
 		// Don't bother to check the debug message
-		m.log.EXPECT().Info(gomock.Any()),
+		// m.log.EXPECT().Info(gomock.Any()),
 		m.client.EXPECT().Update(todo, m.getterAndCachedObj).Return(fx.NotFound),
 		m.log.EXPECT().Error(fx.NotFound, "Failed to update.", "resource", nsname),
 	)
@@ -186,10 +186,10 @@ func TestEnsureExistsUpdateSuccess(t *testing.T) {
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
 		m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		m.log.EXPECT().Info("Update needed. Updating..."),
-		m.log.EXPECT().V(2).Return(m.log),
+		m.log.EXPECT().Info("Update needed. Updating...",dummy),
+		// m.log.EXPECT().V(2).Return(m.log),
 		// Don't bother to check the debug message
-		m.log.EXPECT().Info(gomock.Any()),
+		// m.log.EXPECT().Info(gomock.Any()),
 		m.client.EXPECT().Update(todo, m.getterAndCachedObj).Return(nil),
 		m.log.EXPECT().Info("Updated.", "resource", nsname),
 	)

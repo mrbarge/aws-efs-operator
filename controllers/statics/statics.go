@@ -195,7 +195,7 @@ func findStatic(nsname types.NamespacedName) util.Ensurable {
 }
 
 // EnsureStatics creates and/or updates all the staticResources
-func EnsureStatics(log logr.Logger, client crclient.Client) error {
+func EnsureStatics(log logr.LogSink, client crclient.Client) error {
 	errcount := 0
 	for _, s := range staticResources {
 		if err := s.Ensure(log, client); err != nil {
