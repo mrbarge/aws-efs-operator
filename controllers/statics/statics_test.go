@@ -43,7 +43,7 @@ func TestEnsureStatics(t *testing.T) {
 
 	logger.Info("==> Phase: Bootstrap")
 
-	if err := EnsureStatics(logger, mockClient); err != nil {
+	if err := EnsureStatics(logger.GetSink(), mockClient); err != nil {
 		t.Fatalf("EnsureStatics (bootstrap) failed with %v", err)
 	}
 
@@ -54,7 +54,7 @@ func TestEnsureStatics(t *testing.T) {
 
 	logger.Info("==> Phase: Steady state (if everything is as it should be, EnsureStatics should be effectively a no-op.)")
 
-	if err := EnsureStatics(logger, mockClient); err != nil {
+	if err := EnsureStatics(logger.GetSink(), mockClient); err != nil {
 		t.Fatalf("EnsureStatics (steady state) failed with %v", err)
 	}
 	statics = checkStatics(t, mockClient)
@@ -104,7 +104,7 @@ func TestEnsureStatics(t *testing.T) {
 	// Having made a righteous mess, prove EnsureStatics fixes it.
 	logger.Info("==> Phase: Recover")
 
-	if err := EnsureStatics(logger, mockClient); err != nil {
+	if err := EnsureStatics(logger.GetSink(), mockClient); err != nil {
 		t.Fatalf("EnsureStatics (recover) failed with %v", err)
 	}
 	checkStatics(t, mockClient)
@@ -117,7 +117,7 @@ func TestEnsureStaticsError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	log := fixtures.NewMockLogger(ctrl)
+	log := fixtures.NewMockLogSink(ctrl)
 	client := fixtures.NewMockClient(ctrl)
 
 	// Not realistic, we're just contriving a way to make Ensure fail
