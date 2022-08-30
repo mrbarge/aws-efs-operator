@@ -22,13 +22,13 @@ import (
 
 	// TODO: pkg/client/fake is deprecated, replace with pkg/envtest
 	"sigs.k8s.io/controller-runtime/pkg/client/fake" //nolint:staticcheck
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	// logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // TODO: Test add()/watches somehow?
 
-func setup() (logr.LogSink, *ReconcileStatics) {
+func setup() (logr.LogSink, *StaticsReconciler) {
 
 	// OpenShift types need to be registered explicitly
 	scheme.Scheme.AddKnownTypes(securityv1.SchemeGroupVersion, &securityv1.SecurityContextConstraints{})
@@ -45,8 +45,11 @@ func setup() (logr.LogSink, *ReconcileStatics) {
 	if err != nil {
 		panic(err)
 	}
-
-	return logf.Log.Logger, &ReconcileStatics{client: client, scheme: scheme.Scheme}
+	logger,errx:=logr.FromContext(context.TODO())
+	if err != nil {
+		panic(errx)
+	}
+	return logger.GetSink(), &StaticsReconciler{client: client, scheme: scheme.Scheme}
 }
 
 // TestStartup simulates operator startup by creating the statics before the CRD is discovered,
@@ -125,7 +128,7 @@ func TestReconcile(t *testing.T) {
 		if nsname.Name == daemonSetName {
 			dsStatic = staticResource
 		}
-		logger.Info("Bootstrap: reconciling", "resource", nsname)
+		logger.Info(0,"Bootstrap: reconciling", "resource", nsname)
 		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Didn't expect an error, but got %v", err)
@@ -315,7 +318,7 @@ func TestReconcileEnsureFails(t *testing.T) {
 	// Any resource is fine, just making sure we actually try to Ensure it
 	staticResource := staticResources[3]
 
-	rs := ReconcileStatics{client: fcwce, scheme: scheme.Scheme}
+	rs := StaticsReconciler{client: fcwce, scheme: scheme.Scheme}
 
 	res, err := rs.Reconcile(context.TODO(),reconcile.Request{NamespacedName: staticResource.GetNamespacedName()})
 

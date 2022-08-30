@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	// logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -50,8 +50,9 @@ const (
 	pvcKind     = "PersistentVolumeClaim"
 	svFinalizer = "finalizer.awsefs.managed.openshift.io"
 )
-	
-var log = logf.Log.WithName("controller_sharedvolume")
+
+// var log=logr.Logger.WithName("controller_sharedvolume")
+// var log = logrWithName("controller_sharedvolume")
 
 
 
@@ -82,15 +83,18 @@ type SharedVolumeReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.2/pkg/reconcile
 func (r *SharedVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log,errx := logr.FromContext(ctx)
 
+	if(errx!=nil){
+		panic(errx)
+	}
 
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling SharedVolume")
 
 	// Fetch the SharedVolume instance
 	sharedVolume := &awsefsv1alpha1.SharedVolume{}
-	if err := r.client.Get(context.TODO(), request.NamespacedName, sharedVolume); err != nil {
+	if err := r.client.Get(ctx, request.NamespacedName, sharedVolume); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -158,7 +162,7 @@ func (r *SharedVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	pvce := pvcEnsurable(sharedVolume)
 
 	reqLogger.Info("Reconciling PersistentVolume", "Name", pve.GetNamespacedName().Name)
-	if err := pve.Ensure(reqLogger, r.client); err != nil {
+	if err := pve.Ensure(reqLogger.GetSink(), r.client); err != nil {
 		// Mark Error status. This is best-effort (ignore any errors), since it's happening within
 		// an error path whose behavior we don't want to disrupt.
 		// Note that we don't clear Status.ClaimRef: if it's set, it might help track
@@ -169,7 +173,7 @@ func (r *SharedVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	pvcnsname := pvce.GetNamespacedName()
 	reqLogger.Info("Reconciling PersistentVolumeClaim", "NamespacedName", pvcnsname)
-	if err := pvce.Ensure(reqLogger, r.client); err != nil {
+	if err := pvce.Ensure(reqLogger.GetSink(), r.client); err != nil {
 		// Mark Error status. This is best-effort (ignore any errors), since it's happening within
 		// an error path whose behavior we don't want to disrupt.
 		// Note that we don't clear Status.ClaimRef: if it's set, it might help track

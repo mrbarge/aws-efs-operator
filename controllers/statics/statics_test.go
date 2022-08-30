@@ -5,7 +5,7 @@ import (
 	"openshift/aws-efs-operator/pkg/fixtures"
 	"openshift/aws-efs-operator/pkg/util"
 	"testing"
-
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	securityv1 "github.com/openshift/api/security/v1"
 	"golang.org/x/net/context"
@@ -19,15 +19,20 @@ import (
 	// TODO: pkg/client/fake is deprecated, replace with pkg/envtest
 	// nolint:staticcheck
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	
 )
 
 func TestEnsureStatics(t *testing.T) {
 	// Future-proof this test against new statics being added.
 	checkNumStatics(t)
 
-	logger := logf.Log.Logger
+	
 	ctx := context.TODO()
+	logger,errx := logr.FromContext(ctx)
+	if(errx!=nil){
+		panic(errx)
+	}
+
 	var statics map[string]runtime.Object
 
 	// OpenShift types need to be registered explicitly

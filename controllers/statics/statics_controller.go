@@ -105,7 +105,7 @@ func (r *StaticsReconciler) Reconcile(ctx context.Context, request reconcile.Req
 	if crd, err = discoverCRD(r.client); err != nil {
 		if errors.IsNotFound(err) {
 			// TODO(efried): Delete when https://github.com/openshift/aws-efs-operator/issues/23 is resolved.
-			deleteSCC(reqLogger, r.client)
+			deleteSCC(reqLogger.GetSink(), r.client)
 			reqLogger.Info("SharedVolume CRD has already been deleted. Skipping reconcile, awaiting demise.")
 			return reconcile.Result{}, nil
 		}
@@ -118,7 +118,7 @@ func (r *StaticsReconciler) Reconcile(ctx context.Context, request reconcile.Req
 	// restore below).
 	if crd.GetDeletionTimestamp() != nil {
 		// TODO(efried): Delete when https://github.com/openshift/aws-efs-operator/issues/23 is resolved.
-		deleteSCC(reqLogger, r.client)
+		deleteSCC(reqLogger.GetSink(), r.client)
 		reqLogger.Info("The SharedVolume CRD is being deleted, which means we're shutting down. Skipping reconcile.")
 		return reconcile.Result{}, nil
 	}
@@ -128,7 +128,7 @@ func (r *StaticsReconciler) Reconcile(ctx context.Context, request reconcile.Req
 	// We need to do this here because we can't count on the CRD existing during static setup.
 	s.SetOwner(util.AsOwner(crd))
 
-	if err := s.Ensure(reqLogger, r.client); err != nil {
+	if err := s.Ensure(reqLogger.GetSink(), r.client); err != nil {
 		// TODO: Max retries so we don't get in a hard loop when the failure is something incurable?
 		return reconcile.Result{Requeue: true}, err
 	}
@@ -151,7 +151,7 @@ func discoverCRD(client crclient.Client) (*apiextensions.CustomResourceDefinitio
 // TODO(efried): This is a *workaround* for https://github.com/openshift/aws-efs-operator/issues/23
 // It should be deleted when that issue is resolved (upstream, or here in some better way).
 func deleteSCC(logger logr.LogSink, client crclient.Client) {
-	logger.Info("Manually deleting SecurityContextConstraints. See https://github.com/openshift/aws-efs-operator/issues/23")
+	logger.Info(0,"Manually deleting SecurityContextConstraints. See https://github.com/openshift/aws-efs-operator/issues/23")
 	scce := findStatic(types.NamespacedName{Name: sccName})
 	// Delete() does the logging. We're ignoring any errors.
 	_ = scce.Delete(logger, client)
