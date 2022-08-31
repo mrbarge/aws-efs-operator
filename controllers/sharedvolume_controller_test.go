@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/assert"
 	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
 	"openshift/aws-efs-operator/pkg/fixtures"
 	"openshift/aws-efs-operator/pkg/test"
@@ -36,7 +38,7 @@ var ctx = context.TODO()
 func fakeReconciler() *SharedVolumeReconciler {
 	sch := scheme.Scheme
 	sch.AddKnownTypes(
-		awsefsv1alpha1.SchemeGroupVersion,
+		awsefsv1alpha1.GroupVersion,
 		&awsefsv1alpha1.SharedVolume{},
 		&awsefsv1alpha1.SharedVolumeList{},
 	)
@@ -165,10 +167,7 @@ func validateResources(
 }
 
 func makeRequest(t *testing.T, sv *awsefsv1alpha1.SharedVolume) reconcile.Request {
-	nsname, err := crclient.ObjectKeyFromObject(sv)
-	if err != nil {
-		t.Fatal(err)
-	}
+	nsname := crclient.ObjectKeyFromObject(sv)
 	return reconcile.Request{
 		NamespacedName: nsname,
 	}
@@ -197,6 +196,10 @@ func TestReconcile(t *testing.T) {
 	)
 	r := fakeReconciler()
 
+	ctx := context.TODO()
+	lr := util.NewTestLogger().Logger()
+	ctx = logr.NewContext(ctx, lr)
+
 	// Verify there are no SharedVolumes, PVs, or PVCs
 	validateResources(t, r.client, 0)
 
@@ -217,7 +220,7 @@ func TestReconcile(t *testing.T) {
 	}
 	req = makeRequest(t, sv1)
 	// Since the SV is new, the first reconcile loop just adds our finalizer and requeues
-	if res, err = r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Fatalf("Expected requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	// Make sure the finalizer got added
@@ -238,7 +241,7 @@ func TestReconcile(t *testing.T) {
 	if sv1.Status.Phase != "" || sv1.Status.ClaimRef.Name != "" {
 		t.Fatalf("Expected uninitialized Status, but got %v", sv1.Status)
 	}
-	if res, err = r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Fatalf("Expected requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	// And now it should be Pending
@@ -258,12 +261,12 @@ func TestReconcile(t *testing.T) {
 	// - Create the PV and PVC
 	// - Mark the status Ready with the reference to the PVC
 	// - Not requeue
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	validateResources(t, r.client, 1)
 	// Doing it again should be a no-op
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	validateResources(t, r.client, 1)
@@ -283,13 +286,13 @@ func TestReconcile(t *testing.T) {
 		t.Fatalf("Error creating SharedVolume: %v", err)
 	}
 	req = makeRequest(t, sv2)
-	if res, err = r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Fatalf("Expected requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
-	if res, err = r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Fatalf("Expected requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	svMap, _, _ = validateResources(t, r.client, 2)
@@ -303,7 +306,7 @@ func TestReconcile(t *testing.T) {
 		t.Fatal(err)
 	}
 	// This should ask to requeue so the next run through can take a greener path
-	if res, err = r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Fatalf("Expected requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	// There should (still) be two of each resource, but let's check the SV by hand
@@ -335,7 +338,7 @@ func TestReconcile(t *testing.T) {
 		t.Fatal(err)
 	}
 	// This should ask to requeue so the next run through can take a greener path
-	if res, err = r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Fatalf("Expected requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	// There should (still) be two of each resource, but let's check the SV by hand
@@ -358,7 +361,7 @@ func TestReconcile(t *testing.T) {
 	if err = r.client.Delete(ctx, pvMap[pvname]); err != nil {
 		t.Fatal(err)
 	}
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 
@@ -379,7 +382,7 @@ func TestReconcile(t *testing.T) {
 			t.Fatal(err)
 		}
 		delete(pvBySharedVolume, svKey(svMap[fmt.Sprintf("%s/%s", nsy, svb)]))
-		if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+		if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 			t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 		}
 		// validateResources proves the PV came back.
@@ -392,7 +395,7 @@ func TestReconcile(t *testing.T) {
 	if err = r.client.Update(ctx, pv); err != nil {
 		t.Fatal(err)
 	}
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	_, pvMap, _ = validateResources(t, r.client, 2)
@@ -408,7 +411,7 @@ func TestReconcile(t *testing.T) {
 	if err = r.client.Update(ctx, pv); err != nil {
 		t.Fatal(err)
 	}
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	_, pvMap, _ = validateResources(t, r.client, 2)
@@ -425,7 +428,7 @@ func TestReconcile(t *testing.T) {
 	if err = r.client.Update(ctx, pv); err != nil {
 		t.Fatal(err)
 	}
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	_, pvMap, _ = validateResources(t, r.client, 2)
@@ -442,7 +445,7 @@ func TestReconcile(t *testing.T) {
 	if err = r.client.Update(ctx, pv); err != nil {
 		t.Fatal(err)
 	}
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	svMap, pvMap, _ = validateResources(t, r.client, 2)
@@ -462,7 +465,7 @@ func TestReconcile(t *testing.T) {
 	if err = r.client.Update(ctx, sv2); err != nil {
 		t.Fatal(err)
 	}
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	// The PV and PVC should be gone, but the SV is still there
@@ -476,7 +479,7 @@ func TestReconcile(t *testing.T) {
 		t.Fatalf("Expected finalizers to be gone, but got %v", finalizers)
 	}
 	// Another reconcile at this stage should be a no-op
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	svMap, pvMap, pvcMap = getResources(t, r.client)
@@ -494,7 +497,7 @@ func TestReconcile(t *testing.T) {
 	}
 	validateResources(t, r.client, 1)
 	// This reconcile ought to hit our "deleted out of band" path, which is a no-op.
-	if res, err = r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	validateResources(t, r.client, 1)
@@ -505,13 +508,18 @@ func TestReconcile(t *testing.T) {
 // it's possible to contrive by e.g. building a PV or PVC with our special labels.
 func TestReconcileUnexpected(t *testing.T) {
 	r := fakeReconciler()
+	ctx := context.TODO()
+	lr := util.NewTestLogger().Logger()
+	ctx = logr.NewContext(ctx, lr)
+
 	rq := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "bogus-name",
 			Namespace: "bogus-namespace",
 		},
 	}
-	if res, err := r.Reconcile(rq); res != test.NullResult || err != nil {
+
+	if res, err := r.Reconcile(ctx, rq); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	// Nothing should have been created.
@@ -524,6 +532,10 @@ func TestReconcileGetError(t *testing.T) {
 	defer ctrl.Finish()
 
 	r, client := mockReconciler(ctrl)
+
+	ctx := context.TODO()
+	lr := util.NewTestLogger().Logger()
+	ctx = logr.NewContext(ctx, lr)
 
 	nsname := types.NamespacedName{
 		Namespace: "ns",
@@ -538,7 +550,7 @@ func TestReconcileGetError(t *testing.T) {
 	// We don't especially care about the call args; they're validated in other tests
 	client.EXPECT().Get(ctx, nsname, gomock.Any()).Return(theError)
 
-	if res, err := r.Reconcile(req); res != test.NullResult || err != theError {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != theError {
 		t.Fatalf("Expected no requeue and error %v; got\nresult: %v\nerr: %v", theError, res, err)
 	}
 }
@@ -551,16 +563,17 @@ func TestUneditGetError(t *testing.T) {
 
 	r, client := mockReconciler(ctrl)
 
+	ctx := context.TODO()
+	lr := util.NewTestLogger().Logger()
+	ctx = logr.NewContext(ctx, lr)
+
 	sv := &awsefsv1alpha1.SharedVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",
 		},
 	}
-	svNSName, err := crclient.ObjectKeyFromObject(sv)
-	if err != nil {
-		t.Fatal(err)
-	}
+	svNSName := crclient.ObjectKeyFromObject(sv)
 
 	// The expected NamespacedName for the PV we'll try to retrieve. Hardcoded to avoid SHT.
 	pvname := "pv-bar-foo"
@@ -578,7 +591,7 @@ func TestUneditGetError(t *testing.T) {
 		client.EXPECT().Get(ctx, pvNSName, &corev1.PersistentVolume{}).Return(fixtures.AlreadyExists),
 	)
 
-	if res, err := r.Reconcile(makeRequest(t, sv)); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != fixtures.AlreadyExists {
 		t.Fatalf("Expected no requeue and an error, but got\nresult: %v\nerr: %v", res, err)
 	}
 }
@@ -590,6 +603,10 @@ func TestUneditUpdateError(t *testing.T) {
 
 	r, client := mockReconciler(ctrl)
 
+	ctx := context.TODO()
+	lr := util.NewTestLogger().Logger()
+	ctx = logr.NewContext(ctx, lr)
+
 	sv := &awsefsv1alpha1.SharedVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -600,10 +617,7 @@ func TestUneditUpdateError(t *testing.T) {
 			FileSystemID:  "fs",
 		},
 	}
-	svNSName, err := crclient.ObjectKeyFromObject(sv)
-	if err != nil {
-		t.Fatal(err)
-	}
+	svNSName := crclient.ObjectKeyFromObject(sv)
 
 	// The PV we'll retrieve.
 	pve := pvEnsurable(sv)
@@ -631,7 +645,7 @@ func TestUneditUpdateError(t *testing.T) {
 		client.EXPECT().Update(ctx, svUpdate).Return(fixtures.NotFound),
 	)
 
-	if res, err := r.Reconcile(makeRequest(t, sv)); res != test.NullResult || err != fixtures.NotFound {
+	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != fixtures.NotFound {
 		t.Fatalf("Expected no requeue and an error, but got\nresult: %v\nerr: %v", res, err)
 	}
 
@@ -661,6 +675,10 @@ func TestFinalizerUpdateError(t *testing.T) {
 
 	r, client := mockReconciler(ctrl)
 
+	ctx := context.TODO()
+	lr := util.NewTestLogger().Logger()
+	ctx = logr.NewContext(ctx, lr)
+
 	sv := &awsefsv1alpha1.SharedVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -677,7 +695,7 @@ func TestFinalizerUpdateError(t *testing.T) {
 		client.EXPECT().Update(ctx, matchFinalizer{}).Return(fixtures.NotFound),
 	)
 
-	if res, err := r.Reconcile(makeRequest(t, sv)); res != test.NullResult || err != fixtures.NotFound {
+	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != fixtures.NotFound {
 		t.Fatalf("Expected no requeue and an error, but got\nresult: %v\nerr: %v", res, err)
 	}
 
@@ -713,6 +731,10 @@ func TestEnsureFails(t *testing.T) {
 
 	r := fakeReconciler()
 
+	ctx := context.TODO()
+	lr := util.NewTestLogger().Logger()
+	ctx = logr.NewContext(ctx, lr)
+
 	sv := &awsefsv1alpha1.SharedVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sv",
@@ -725,10 +747,10 @@ func TestEnsureFails(t *testing.T) {
 
 	req := makeRequest(t, sv)
 
-	if res, err := r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err := r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Fatalf("Expected requeue result, no error, but got\nresult: %v\nerr: %v", res, err)
 	}
-	if res, err := r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err := r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Fatalf("Expected requeue result, no error, but got\nresult: %v\nerr: %v", res, err)
 	}
 
@@ -766,7 +788,7 @@ func TestEnsureFails(t *testing.T) {
 	)
 
 	// Do the first run. The NotFound error bubbles up from the PV's Ensure().
-	if res, err := r.Reconcile(req); res != test.NullResult || err != fixtures.NotFound {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.NotFound {
 		t.Errorf("Expected no requeue and a error, got\nresult: %v\nerr: %v", res, err)
 	}
 	// That should have caused Reconcile to set the SharedVolume's Status to Failed
@@ -780,7 +802,7 @@ func TestEnsureFails(t *testing.T) {
 		t.Errorf("Expected Failed Phase and NotFound Message but got %v", sv)
 	}
 
-	if res, err := r.Reconcile(req); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.AlreadyExists {
 		t.Errorf("Expected no requeue and a error, got\nresult: %v\nerr: %v", res, err)
 	}
 	// Note that the PV (and PVC) still hasn't been created because we mocked the guts out of its Ensure
@@ -806,6 +828,10 @@ func TestHandleDeleteFails(t *testing.T) {
 	// We'll use this later to wrap the fake client to make it error where we want it
 	realFakeClient := r.client
 
+	ctx := context.TODO()
+	lr := util.NewTestLogger().Logger()
+	ctx = logr.NewContext(ctx, lr)
+
 	sv := &awsefsv1alpha1.SharedVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sv",
@@ -824,13 +850,13 @@ func TestHandleDeleteFails(t *testing.T) {
 	// It takes three Reconciles to get to steady state. This sequence is validated thoroughly in
 	// TestReconcile, so just rough it up here.
 	req := makeRequest(t, sv)
-	if res, err := r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err := r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Errorf("Expected requeue and no error, got\nresult: %v\nerr: %v", res, err)
 	}
-	if res, err := r.Reconcile(req); res != test.RequeueResult || err != nil {
+	if res, err := r.Reconcile(ctx, req); res != test.RequeueResult || err != nil {
 		t.Errorf("Expected requeue and no error, got\nresult: %v\nerr: %v", res, err)
 	}
-	if res, err := r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Errorf("Expected no requeue and a error, got\nresult: %v\nerr: %v", res, err)
 	}
 	// This proves our SV/PV/PVC are all present and accounted for
@@ -862,7 +888,7 @@ func TestHandleDeleteFails(t *testing.T) {
 			fixtures.AlreadyExists,
 		},
 	}
-	if res, err := r.Reconcile(req); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.AlreadyExists {
 		t.Fatalf("Expected null result, AlreadyExists error, but got\nresult: %v\nerr: %v", res, err)
 	}
 	// The PVC should be gone from the cache, but the PV should not
@@ -893,7 +919,7 @@ func TestHandleDeleteFails(t *testing.T) {
 			fixtures.AlreadyExists,
 		},
 	}
-	if res, err := r.Reconcile(req); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.AlreadyExists {
 		t.Fatalf("Expected null result, AlreadyExists error, but got\nresult: %v\nerr: %v", res, err)
 	}
 	// Both the PVC and the PV should be gone from the cache
@@ -925,7 +951,7 @@ func TestHandleDeleteFails(t *testing.T) {
 			fixtures.AlreadyExists,
 		},
 	}
-	if res, err := r.Reconcile(req); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.AlreadyExists {
 		t.Fatalf("Expected null result, AlreadyExists error, but got\nresult: %v\nerr: %v", res, err)
 	}
 	// Both the PVC and the PV should be gone from the cache
@@ -950,7 +976,7 @@ func TestHandleDeleteFails(t *testing.T) {
 	//    We start off in a messy state where the PV and PVC are already gone, so this isn't
 	//    *exactly* a green path. More... chartreuse.
 	r.client = realFakeClient
-	if res, err := r.Reconcile(req); res != test.NullResult || err != nil {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected null result, no error, but got\nresult: %v\nerr: %v", res, err)
 	}
 	// Both the PVC and the PV should be gone from the cache
@@ -978,7 +1004,10 @@ func TestUpdateStatusFail(t *testing.T) {
 	defer ctrl.Finish()
 
 	r, client := mockReconciler(ctrl)
-	logger := fixtures.NewMockLogger(ctrl)
+	ctx := context.TODO()
+	tl := util.NewTestLogger()
+	logger := tl.Logger()
+	ctx = logr.NewContext(ctx, logger)
 
 	sv := &awsefsv1alpha1.SharedVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -992,12 +1021,13 @@ func TestUpdateStatusFail(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		logger.EXPECT().Info("Updating SharedVolume status", "status", sv.Status),
+		//logger.EXPECT().Info("Updating SharedVolume status", "status", sv.Status),
 		client.EXPECT().Status().Return(client),
 		client.EXPECT().Update(ctx, sv).Return(fixtures.AlreadyExists),
-		logger.EXPECT().Error(fixtures.AlreadyExists, "Failed to update SharedVolume status"),
+		//logger.EXPECT().Error(fixtures.AlreadyExists, "Failed to update SharedVolume status"),
 	)
 	if err := r.updateStatus(logger, sv); err != fixtures.AlreadyExists {
 		t.Fatalf("Expected AlreadyExists but got %v", err)
 	}
+	assert.Contains(t, tl.Messages(), "Failed to update SharedVolume status")
 }

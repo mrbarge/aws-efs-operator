@@ -19,10 +19,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
 type tempInterface struct {
 	foo string
 }
-var dummy=tempInterface{foo: "test"}
+
+var dummy = tempInterface{foo: "test"}
+
 // Ensurable provides helpers to allow ensuring the existence and state of a resource.
 type Ensurable interface {
 	// GetType returns a unique, empty runtime.Object of the specific type of the ensurable resource.
@@ -34,9 +37,9 @@ type Ensurable interface {
 	SetOwner(*metav1.OwnerReference)
 	// Ensure creates an Ensurable resource if it doesn't already exist, or updates it if it exists
 	// and differs from the gold standard.
-	Ensure(logr.LogSink, crclient.Client) error
+	Ensure(logr.Logger, crclient.Client) error
 	// Delete makes sure the resource represented by the Ensurable is gone.
-	Delete(logr.LogSink, crclient.Client) error
+	Delete(logr.Logger, crclient.Client) error
 }
 
 // EnsurableImpl provides the implementation of the Ensurable interface.
@@ -69,12 +72,12 @@ func (e *EnsurableImpl) SetOwner(owner *metav1.OwnerReference) {
 }
 
 // Ensure implements Ensurable.
-func (e *EnsurableImpl) Ensure(log logr.LogSink, client crclient.Client) error {
+func (e *EnsurableImpl) Ensure(log logr.Logger, client crclient.Client) error {
 	rname := e.GetNamespacedName()
 	foundObj := e.GetType()
 	if err := client.Get(context.TODO(), rname, foundObj); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info(0,"Creating.", "resource", rname)
+			log.Info("Creating.", "resource", rname)
 			_, newObj := e.latestDefinition(nil)
 			// Clear any cached ResourceVersion, as required by Create
 			newObj.(metav1.Object).SetResourceVersion("")
@@ -82,7 +85,7 @@ func (e *EnsurableImpl) Ensure(log logr.LogSink, client crclient.Client) error {
 				log.Error(err, "Failed to create", "resource", rname)
 				return err
 			}
-			log.Info(0,"Created.", "resource", rname)
+			log.Info("Created.", "resource", rname)
 			// Cache it
 			e.latestVersion = newObj
 			return nil
@@ -90,14 +93,14 @@ func (e *EnsurableImpl) Ensure(log logr.LogSink, client crclient.Client) error {
 		log.Error(err, "Failed to retrieve.", "resource", rname)
 		return err
 	}
-	log.Info(0,"Found. Checking whether update is needed.", "resource", rname)
+	log.Info("Found. Checking whether update is needed.", "resource", rname)
 
 	equal, latestObj := e.latestDefinition(foundObj)
-	
+
 	if equal {
-		log.Info(0,"No update needed.", dummy)
+		log.Info("No update needed.", dummy)
 	} else {
-		log.Info(0,"Update needed. Updating...",dummy)
+		log.Info("Update needed. Updating...", dummy)
 		// Debug: print out _how_ the objects differ.
 		// This will show what we're changing *from* as '-' and what we're changing *to* as '+'.
 		// log.V(2).Info(0,cmp.Diff(foundObj, latestObj))
@@ -108,7 +111,7 @@ func (e *EnsurableImpl) Ensure(log logr.LogSink, client crclient.Client) error {
 			log.Error(err, "Failed to update.", "resource", rname)
 			return err
 		}
-		log.Info(0,"Updated.", "resource", rname)
+		log.Info("Updated.", "resource", rname)
 	}
 	// Okay, we either updated successfully or didn't need an update. The cache might be good, except:
 	// - If this is the first hit for this resource, newObj is our generated skeleton definition, which
@@ -123,7 +126,7 @@ func (e *EnsurableImpl) Ensure(log logr.LogSink, client crclient.Client) error {
 }
 
 // Delete implements Ensurable
-func (e *EnsurableImpl) Delete(log logr.LogSink, client crclient.Client) error {
+func (e *EnsurableImpl) Delete(log logr.Logger, client crclient.Client) error {
 	// Let's clear the cache in case the object needs to be recreated at some point
 	e.latestVersion = nil
 
@@ -139,7 +142,7 @@ func (e *EnsurableImpl) Delete(log logr.LogSink, client crclient.Client) error {
 		return err
 	}
 
-	log.Info(0,"Deleting.", "resource", rname)
+	log.Info("Deleting.", "resource", rname)
 	if err := client.Delete(context.TODO(), foundObj); err != nil {
 		if errors.IsNotFound(err) {
 			// It got deleted out-of-band. That's fine

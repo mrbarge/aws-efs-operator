@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -25,13 +26,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const svCRDName = "sharedvolumes.aws-efs.managed.openshift.io"
 
 var log = logf.Log.WithName("controller_statics")
-
 
 // Add creates a new Statics Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -62,8 +61,9 @@ func (r *StaticsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return nil
-	
+
 }
+
 // blank assignment to verify that StaticsReconciler implements reconcile.Reconciler
 var _ reconcile.Reconciler = &StaticsReconciler{}
 
@@ -105,7 +105,7 @@ func (r *StaticsReconciler) Reconcile(ctx context.Context, request reconcile.Req
 	if crd, err = discoverCRD(r.client); err != nil {
 		if errors.IsNotFound(err) {
 			// TODO(efried): Delete when https://github.com/openshift/aws-efs-operator/issues/23 is resolved.
-			deleteSCC(reqLogger.GetSink(), r.client)
+			deleteSCC(reqLogger, r.client)
 			reqLogger.Info("SharedVolume CRD has already been deleted. Skipping reconcile, awaiting demise.")
 			return reconcile.Result{}, nil
 		}
@@ -118,7 +118,7 @@ func (r *StaticsReconciler) Reconcile(ctx context.Context, request reconcile.Req
 	// restore below).
 	if crd.GetDeletionTimestamp() != nil {
 		// TODO(efried): Delete when https://github.com/openshift/aws-efs-operator/issues/23 is resolved.
-		deleteSCC(reqLogger.GetSink(), r.client)
+		deleteSCC(reqLogger, r.client)
 		reqLogger.Info("The SharedVolume CRD is being deleted, which means we're shutting down. Skipping reconcile.")
 		return reconcile.Result{}, nil
 	}
@@ -128,7 +128,7 @@ func (r *StaticsReconciler) Reconcile(ctx context.Context, request reconcile.Req
 	// We need to do this here because we can't count on the CRD existing during static setup.
 	s.SetOwner(util.AsOwner(crd))
 
-	if err := s.Ensure(reqLogger.GetSink(), r.client); err != nil {
+	if err := s.Ensure(reqLogger, r.client); err != nil {
 		// TODO: Max retries so we don't get in a hard loop when the failure is something incurable?
 		return reconcile.Result{Requeue: true}, err
 	}
@@ -150,8 +150,8 @@ func discoverCRD(client crclient.Client) (*apiextensions.CustomResourceDefinitio
 // deleteSCC deletes the SecurityContextConstraints static.
 // TODO(efried): This is a *workaround* for https://github.com/openshift/aws-efs-operator/issues/23
 // It should be deleted when that issue is resolved (upstream, or here in some better way).
-func deleteSCC(logger logr.LogSink, client crclient.Client) {
-	logger.Info(0,"Manually deleting SecurityContextConstraints. See https://github.com/openshift/aws-efs-operator/issues/23")
+func deleteSCC(logger logr.Logger, client crclient.Client) {
+	logger.Info("Manually deleting SecurityContextConstraints. See https://github.com/openshift/aws-efs-operator/issues/23")
 	scce := findStatic(types.NamespacedName{Name: sccName})
 	// Delete() does the logging. We're ignoring any errors.
 	_ = scce.Delete(logger, client)

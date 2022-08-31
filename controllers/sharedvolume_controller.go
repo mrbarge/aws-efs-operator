@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 
 	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
@@ -29,37 +30,23 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	// logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	ctrl "sigs.k8s.io/controller-runtime"
-
-
 )
-	
+
 const (
 	// TODO: Is there a lib const for this somewhere?
 	pvcKind     = "PersistentVolumeClaim"
 	svFinalizer = "finalizer.awsefs.managed.openshift.io"
 )
 
-// var log=logr.Logger.WithName("controller_sharedvolume")
-// var log = logrWithName("controller_sharedvolume")
-
-
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &SharedVolumeReconciler{client: mgr.GetClient(), scheme: mgr.GetScheme()}
-}
+var log = logf.Log.WithName("controller_sharedvolume")
 
 // SharedVolumeReconciler reconciles a SharedVolume object
 type SharedVolumeReconciler struct {
@@ -82,10 +69,10 @@ type SharedVolumeReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.2/pkg/reconcile
-func (r *SharedVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log,errx := logr.FromContext(ctx)
+func (r *SharedVolumeReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+	log, errx := logr.FromContext(ctx)
 
-	if(errx!=nil){
+	if errx != nil {
 		panic(errx)
 	}
 
@@ -162,7 +149,7 @@ func (r *SharedVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	pvce := pvcEnsurable(sharedVolume)
 
 	reqLogger.Info("Reconciling PersistentVolume", "Name", pve.GetNamespacedName().Name)
-	if err := pve.Ensure(reqLogger.GetSink(), r.client); err != nil {
+	if err := pve.Ensure(reqLogger, r.client); err != nil {
 		// Mark Error status. This is best-effort (ignore any errors), since it's happening within
 		// an error path whose behavior we don't want to disrupt.
 		// Note that we don't clear Status.ClaimRef: if it's set, it might help track
@@ -173,7 +160,7 @@ func (r *SharedVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	pvcnsname := pvce.GetNamespacedName()
 	reqLogger.Info("Reconciling PersistentVolumeClaim", "NamespacedName", pvcnsname)
-	if err := pvce.Ensure(reqLogger.GetSink(), r.client); err != nil {
+	if err := pvce.Ensure(reqLogger, r.client); err != nil {
 		// Mark Error status. This is best-effort (ignore any errors), since it's happening within
 		// an error path whose behavior we don't want to disrupt.
 		// Note that we don't clear Status.ClaimRef: if it's set, it might help track
@@ -188,44 +175,40 @@ func (r *SharedVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SharedVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	
-	// Create a new controller
-	c, err := controller.New("sharedvolume-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
 
-	// Watch for changes to primary resource SharedVolume.
-	// (No need for the ICarePredicate here; we want to watch all SharedVolume instances.)
-	err = c.Watch(&source.Kind{Type: &awsefsv1alpha1.SharedVolume{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&awsefsv1alpha1.SharedVolume{}).
+		Watches(&source.Kind{Type: &corev1.PersistentVolume{}}, &enqueueRequestForSharedVolume{
+			Client: mgr.GetClient(),
+		}).
+		Watches(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, &enqueueRequestForSharedVolume{
+			Client: mgr.GetClient(),
+		}).
+		Complete(r)
 
-	// Watch PVs that trigger our predicate, and map them to the SharedVolume that owns them.
-	// Note that we can't use owner references because PVs aren't namespaced.
-	err = c.Watch(
-		&source.Kind{Type: &corev1.PersistentVolume{}},
-		&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(toSharedVolume)},
-		util.ICarePredicate)
-	if err != nil {
-		return err
-	}
-
-	// Watch PVCs that trigger our predicate, and map them to the SharedVolume that owns them.
-	// (Could have done this with owner references, but prefer being consistent with the way
-	// we're handling PersistentVolumes.)
-	err = c.Watch(
-		&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
-		&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(toSharedVolume)},
-		util.ICarePredicate)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	//// Watch PVs that trigger our predicate, and map them to the SharedVolume that owns them.
+	//// Note that we can't use owner references because PVs aren't namespaced.
+	//err = c.Watch(
+	//	&source.Kind{Type: &corev1.PersistentVolume{}},
+	//	&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(toSharedVolume)},
+	//	util.ICarePredicate)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Watch PVCs that trigger our predicate, and map them to the SharedVolume that owns them.
+	//// (Could have done this with owner references, but prefer being consistent with the way
+	//// we're handling PersistentVolumes.)
+	//err = c.Watch(
+	//	&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
+	//	&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(toSharedVolume)},
+	//	util.ICarePredicate)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//return nil
 }
-
 
 // ensureFinalizer makes sure the `sharedVolume` has our finalizer registered.
 // The `bool` return indicates whether an update was pushed to the server.

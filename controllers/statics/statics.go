@@ -14,12 +14,12 @@ import (
 
 	"github.com/go-logr/logr"
 	securityv1 "github.com/openshift/api/security/v1"
-	"openshift/aws-efs-operator/pkg/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
+	"openshift/aws-efs-operator/pkg/k8sutil"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
@@ -142,7 +142,7 @@ func loadDefTemplate(receiver crclient.Object, defFile string) {
 func getNSName(definition crclient.Object) types.NamespacedName {
 	/*remove err , new version returns ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}*/
 	nsname := crclient.ObjectKeyFromObject(definition)
-	
+
 	if len(nsname.Name) == 0 {
 		panic(fmt.Sprintf("Couldn't extract NamespacedName from definition: %s", "Namespace not extracted"))
 	}
@@ -195,7 +195,7 @@ func findStatic(nsname types.NamespacedName) util.Ensurable {
 }
 
 // EnsureStatics creates and/or updates all the staticResources
-func EnsureStatics(log logr.LogSink, client crclient.Client) error {
+func EnsureStatics(log logr.Logger, client crclient.Client) error {
 	errcount := 0
 	for _, s := range staticResources {
 		if err := s.Ensure(log, client); err != nil {

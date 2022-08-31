@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"testing"
 
 	fx "openshift/aws-efs-operator/pkg/fixtures"
@@ -11,8 +12,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"k8s.io/apimachinery/pkg/types"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var todo context.Context = context.TODO()
@@ -21,6 +22,7 @@ var nsname types.NamespacedName = types.NamespacedName{}
 type mocks struct {
 	ensurable           *EnsurableImpl
 	log                 *fx.MockLogSink
+	lr                  logr.Logger
 	client              *fx.MockClient
 	getTypeAndServerObj crclient.Object
 	getterAndCachedObj  crclient.Object
@@ -37,9 +39,11 @@ func mkMocks(ctrl *gomock.Controller) mocks {
 		// By not setting one of them, we're asserting it won't be called, since
 		// doing so would attempt to dereference a nil function pointer.
 	}
+	ls := fx.NewMockLogSink(ctrl)
 	return mocks{
 		ensurable:           &ensurable,
-		log:                 fx.NewMockLogSink(ctrl),
+		log:                 ls,
+		lr:                  logr.New(ls),
 		client:              fx.NewMockClient(ctrl),
 		getTypeAndServerObj: o1,
 		getterAndCachedObj:  o2,
@@ -63,7 +67,7 @@ func TestEnsureNotFoundCreateError(t *testing.T) {
 		m.log.EXPECT().Error(fx.AlreadyExists, "Failed to create", "resource", nsname),
 	)
 
-	if err := m.ensurable.Ensure(m.log, m.client); err != fx.AlreadyExists {
+	if err := m.ensurable.Ensure(m.lr, m.client); err != fx.AlreadyExists {
 		t.Errorf("Ensure(): expected error AlreadyExists, got %v", err)
 	}
 }
@@ -82,7 +86,7 @@ func TestEnsureNotFoundCreateSuccess(t *testing.T) {
 		m.log.EXPECT().Info("Created.", "resource", nsname),
 	)
 
-	if err := m.ensurable.Ensure(m.log, m.client); err != nil {
+	if err := m.ensurable.Ensure(m.lr, m.client); err != nil {
 		t.Errorf("Ensure(): expected nil, got %v", err)
 	}
 }
@@ -98,7 +102,7 @@ func TestEnsureGetError(t *testing.T) {
 		m.log.EXPECT().Error(fx.AlreadyExists, "Failed to retrieve.", "resource", nsname),
 	)
 
-	if err := m.ensurable.Ensure(m.log, m.client); err != fx.AlreadyExists {
+	if err := m.ensurable.Ensure(m.lr, m.client); err != fx.AlreadyExists {
 		t.Errorf("Ensure(): expected error AlreadyExists, got %v", err)
 	}
 }
@@ -121,10 +125,10 @@ func TestEnsureExistsNoUpdate(t *testing.T) {
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
 		m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		m.log.EXPECT().Info("No update needed.","resource", nsname),
+		m.log.EXPECT().Info("No update needed.", "resource", nsname),
 	)
 
-	if err := m.ensurable.Ensure(m.log, m.client); err != nil {
+	if err := m.ensurable.Ensure(m.lr, m.client); err != nil {
 		t.Errorf("Ensure(): expected nil, got %v", err)
 	}
 	// The latestVersion got overwritten, but with the same value
@@ -148,7 +152,7 @@ func TestEnsureExistsUpdateError(t *testing.T) {
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
 		m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		m.log.EXPECT().Info("Update needed. Updating...","resource", nsname),
+		m.log.EXPECT().Info("Update needed. Updating...", "resource", nsname),
 		// m.log.EXPECT().V(2).Return(m.log),
 		// Don't bother to check the debug message
 		// m.log.EXPECT().Info(gomock.Any()),
@@ -156,7 +160,7 @@ func TestEnsureExistsUpdateError(t *testing.T) {
 		m.log.EXPECT().Error(fx.NotFound, "Failed to update.", "resource", nsname),
 	)
 
-	if err := m.ensurable.Ensure(m.log, m.client); err != fx.NotFound {
+	if err := m.ensurable.Ensure(m.lr, m.client); err != fx.NotFound {
 		t.Errorf("Ensure(): expected error NotFound, got %v", err)
 	}
 	// The latestVersion didn't get reset
@@ -186,7 +190,7 @@ func TestEnsureExistsUpdateSuccess(t *testing.T) {
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
 		m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		m.log.EXPECT().Info("Update needed. Updating...",dummy),
+		m.log.EXPECT().Info("Update needed. Updating...", dummy),
 		// m.log.EXPECT().V(2).Return(m.log),
 		// Don't bother to check the debug message
 		// m.log.EXPECT().Info(gomock.Any()),
@@ -194,7 +198,7 @@ func TestEnsureExistsUpdateSuccess(t *testing.T) {
 		m.log.EXPECT().Info("Updated.", "resource", nsname),
 	)
 
-	if err := m.ensurable.Ensure(m.log, m.client); err != nil {
+	if err := m.ensurable.Ensure(m.lr, m.client); err != nil {
 		t.Errorf("Ensure(): expected nil, got %v", err)
 	}
 	// The latestVersion got overwritten, but with the same value
@@ -215,7 +219,7 @@ func TestDeleteAlreadyGone(t *testing.T) {
 
 	m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(fx.NotFound)
 
-	if err := m.ensurable.Delete(m.log, m.client); err != nil {
+	if err := m.ensurable.Delete(m.lr, m.client); err != nil {
 		t.Errorf("Delete(): expected nil, got %v", err)
 	}
 }
@@ -231,7 +235,7 @@ func TestDeleteGetError(t *testing.T) {
 		m.log.EXPECT().Error(fx.AlreadyExists, "Failed to retrieve.", "resource", nsname),
 	)
 
-	if err := m.ensurable.Delete(m.log, m.client); err != fx.AlreadyExists {
+	if err := m.ensurable.Delete(m.lr, m.client); err != fx.AlreadyExists {
 		t.Errorf("Delete(): expected error %v; got %v", fx.AlreadyExists, err)
 	}
 }
@@ -249,7 +253,7 @@ func TestDeleteOutOfBand(t *testing.T) {
 		m.client.EXPECT().Delete(todo, m.getTypeAndServerObj).Return(fx.NotFound),
 	)
 
-	if err := m.ensurable.Delete(m.log, m.client); err != nil {
+	if err := m.ensurable.Delete(m.lr, m.client); err != nil {
 		t.Errorf("Delete(): expected nil, got %v", err)
 	}
 }
@@ -267,7 +271,7 @@ func TestDeleteDeleteError(t *testing.T) {
 		m.log.EXPECT().Error(fx.AlreadyExists, "Failed to delete.", "resource", nsname),
 	)
 
-	if err := m.ensurable.Delete(m.log, m.client); err != fx.AlreadyExists {
+	if err := m.ensurable.Delete(m.lr, m.client); err != fx.AlreadyExists {
 		t.Errorf("Delete(): expected error %v; got %v", fx.AlreadyExists, err)
 	}
 }
@@ -284,7 +288,7 @@ func TestDeleteDeletes(t *testing.T) {
 		m.client.EXPECT().Delete(todo, m.getTypeAndServerObj).Return(nil),
 	)
 
-	if err := m.ensurable.Delete(m.log, m.client); err != nil {
+	if err := m.ensurable.Delete(m.lr, m.client); err != nil {
 		t.Errorf("Delete(): expected nil, got %v", err)
 	}
 }

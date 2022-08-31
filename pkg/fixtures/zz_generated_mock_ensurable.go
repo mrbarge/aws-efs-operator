@@ -77,7 +77,7 @@ func (mr *MockEnsurableMockRecorder) SetOwner(arg0 interface{}) *gomock.Call {
 }
 
 // Ensure mocks base method
-func (m *MockEnsurable) Ensure(arg0 logr.LogSink, arg1 client.Client) error {
+func (m *MockEnsurable) Ensure(arg0 logr.Logger, arg1 client.Client) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Ensure", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -91,7 +91,7 @@ func (mr *MockEnsurableMockRecorder) Ensure(arg0, arg1 interface{}) *gomock.Call
 }
 
 // Delete mocks base method
-func (m *MockEnsurable) Delete(arg0 logr.LogSink, arg1 client.Client) error {
+func (m *MockEnsurable) Delete(arg0 logr.Logger, arg1 client.Client) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
 	ret0, _ := ret[0].(error)

@@ -12,8 +12,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Cache of PVC Ensurables by SharedVolume namespace and name
@@ -31,7 +31,7 @@ func pvcEnsurable(sharedVolume *awsefsv1alpha1.SharedVolume) util.Ensurable {
 			// now, so leave it.
 			// * except for the size, if supported, which in the case of EFS it's not,
 			//   and wouldn't make sense anyway, because elastic.
-			EqualFunc: func(local, server runtime.Object) bool {
+			EqualFunc: func(local, server crclient.Object) bool {
 				return reflect.DeepEqual(
 					local.(*corev1.PersistentVolumeClaim).Spec,
 					server.(*corev1.PersistentVolumeClaim).Spec)
